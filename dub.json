@@ -1,0 +1,20 @@
+{
+	"name": "shaped_window_sdl",
+	"description": "Examples of custom shaped windows in SDL",
+	"license": "MIT",
+	"authors": [
+		"Matthew Brennan Jones <matthew.brennan.jones@gmail.com>"
+	],
+	"copyright": "Copyright (c) 2023 Matthew Brennan Jones",
+
+
+	"versions": [
+		"SDL_205",
+		"SDL_Image",
+	],
+
+	"dependencies": {
+		"bindbc-sdl": "~>1.2.4",
+		"dlib": "~>1.1.0"
+	}
+}
