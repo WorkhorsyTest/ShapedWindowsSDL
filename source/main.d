@@ -246,7 +246,7 @@ int main() {
 		end_time = GetTicksNS();
 		used_time = clamp(end_time - start_time, 0, s64.max);
 		sleep_time = clamp(budget_time - used_time, 0, s64.max);
-		if (used_time > 2_000_000) logfln("!!! used_time:%s, sleep_time:%s, delta:%s", used_time, sleep_time, delta);
+		//if (used_time > 2_000_000) logfln("!!! used_time:%s, sleep_time:%s, delta:%s", used_time, sleep_time, delta);
 		Thread.sleep(dur!("nsecs")(sleep_time));
 	}
 
