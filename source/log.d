@@ -7,34 +7,68 @@ module log;
 import std.stdio : stdout;
 import std.stdio : stderr;
 
+enum bool is_printing = true;
+
 void log(S...)(S args) {
-	stdout.write(args); stdout.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stdout.write(args); stdout.flush();
+	}
+	}
 }
 
 void logln(S...)(S args) {
-	stdout.writeln(args); stdout.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stdout.writeln(args); stdout.flush();
+	}
+	}
 }
 
 void logf(Char, A...)(in Char[] fmt, A args) {
-	stdout.writef(fmt, args); stdout.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stdout.writef(fmt, args); stdout.flush();
+	}
+	}
 }
 
 void logfln(Char, A...)(in Char[] fmt, A args) {
-	stdout.writefln(fmt, args); stdout.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stdout.writefln(fmt, args); stdout.flush();
+	}
+	}
 }
 
 void warn(S...)(S args) {
-	stderr.write(args); stderr.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stderr.write(args); stderr.flush();
+	}
+	}
 }
 
 void warnln(S...)(S args) {
-	stderr.writeln(args); stderr.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stderr.writeln(args); stderr.flush();
+	}
+	}
 }
 
 void warnf(Char, A...)(in Char[] fmt, A args) {
-	stderr.writef(fmt, args); stderr.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stderr.writef(fmt, args); stderr.flush();
+	}
+	}
 }
 
 void warnfln(Char, A...)(in Char[] fmt, A args) {
-	stderr.writefln(fmt, args); stderr.flush();
+	static if(is_printing) {
+	version (D_BetterC) { } else {
+		stderr.writefln(fmt, args); stderr.flush();
+	}
+	}
 }

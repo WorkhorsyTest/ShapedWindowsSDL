@@ -6,18 +6,25 @@
 import core_dependencies;
 import vectors;
 
-
+/+
 string format(string fmt = "%s", ARGS...)(auto ref ARGS args) {
 	string result;
 	static import std.string;
 	result = std.string.format(fmt, args);
 	return result;
 }
-
++/
 s64 GetTicksNS() {
-	import core.time : MonoTime, ticksToNSecs;
-
-	return ticksToNSecs(MonoTime.currTime.ticks);
+	version (D_BetterC) {
+		//import core.stdc.time;
+		import core.sys.posix.time;
+		timespec start;
+		clock_gettime(CLOCK_REALTIME, &start);
+		return start.tv_nsec;
+	} else {
+		import core.time : MonoTime, ticksToNSecs;
+		return ticksToNSecs(MonoTime.currTime.ticks);
+	}
 }
 
 void Pythagorean(const Vec2f src, const Vec2f dest, ref float a, ref float b, ref float c) {

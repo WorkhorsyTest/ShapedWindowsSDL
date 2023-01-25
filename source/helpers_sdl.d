@@ -7,10 +7,12 @@ import core_dependencies;
 import helpers;
 import log;
 
+/+
 string GetSDLError() {
 	import std.string : fromStringz;
 	return cast(string) fromStringz(SDL_GetError());
 }
++/
 
 SDL_WindowShapeMode GetWindowShapeModeFromColorAlpha(SDL_Surface* surface) {
 	SDL_WindowShapeMode shape_mode;
@@ -37,28 +39,28 @@ SDL_WindowShapeMode GetWindowShapeModeFromColorAlpha(SDL_Surface* surface) {
 }
 
 struct Graphic {
-	string image_path;
+	char* image_path;
 	SDL_Surface* surface;
 	SDL_Texture* texture;
 	SDL_WindowShapeMode shape_mode;
 }
 
-Graphic LoadGraphic(SDL_Renderer* renderer, string image_path) {
-	import std.string : toStringz;
+Graphic LoadGraphic(SDL_Renderer* renderer, const char* image_path) {
+	//import std.string : toStringz;
 
 	Graphic graphic;
-	graphic.image_path = image_path;
+	graphic.image_path = cast(char*) image_path;
 
 	// Create new surface from the image
-	graphic.surface = IMG_Load(image_path.toStringz);
+	graphic.surface = IMG_Load(image_path);
 	if (graphic.surface == null) {
-		throw new Exception(format!("Failed to load surface: %s")(GetSDLError()));
+		//throw new Exception(format!("Failed to load surface: %s")(GetSDLError()));
 	}
 
 	// Create a new texture from the surface
 	graphic.texture = SDL_CreateTextureFromSurface(renderer, graphic.surface);
 	if (graphic.texture == null) {
-		throw new Exception(format!("Failed to load texture: %s")(GetSDLError()));
+		//throw new Exception(format!("Failed to load texture: %s")(GetSDLError()));
 	}
 
 	// Get surface image transparency color
@@ -68,18 +70,18 @@ Graphic LoadGraphic(SDL_Renderer* renderer, string image_path) {
 }
 
 void InitSharedLibraries() {
-	string[] errors;
+//	Array!string errors;
 
 	SDLSupport sdl_ver = loadSDL();
-	logfln("SDL: %s", sdl_ver);
+//	logfln("SDL: %s", sdl_ver);
 	// FIXME: Having this giant final switch is ugly and brittle
 	if (sdl_ver != sdlSupport) {
 		final switch (sdl_ver) {
 			case SDLSupport.noLibrary:
-				errors ~= "Failed to find the library SDL2.";
+//				errors ~= "Failed to find the library SDL2.";
 				break;
 			case SDLSupport.badLibrary:
-				errors ~= "Failed to load the library SDL2.";
+//				errors ~= "Failed to load the library SDL2.";
 				break;
 			case SDLSupport.sdl200: break;
 			case SDLSupport.sdl201: break;
@@ -102,15 +104,15 @@ void InitSharedLibraries() {
 	}
 
 	SDLImageSupport sdl_img_ver = loadSDLImage();
-	logfln("SDL_Image: %s", sdl_img_ver);
+//	logfln("SDL_Image: %s", sdl_img_ver);
 	// FIXME: Having this giant final switch is ugly and brittle
 	if (sdl_img_ver != sdlImageSupport) {
 		final switch (sdl_img_ver) {
 			case SDLImageSupport.noLibrary:
-				errors ~= "Failed to find the library SDL2 Image.";
+//				errors ~= "Failed to find the library SDL2 Image.";
 				break;
 			case SDLImageSupport.badLibrary:
-				errors ~= "Failed to load the library SDL2 Image.";
+//				errors ~= "Failed to load the library SDL2 Image.";
 				break;
 			case SDLImageSupport.sdlImage200: break;
 			case SDLImageSupport.sdlImage201: break;
@@ -122,13 +124,13 @@ void InitSharedLibraries() {
 	}
 
 	// Show any errors
-	foreach (error ; errors) {
-		warnln(error);
-	}
-	if (errors.length > 0) {
-		import std.array : join;
-		throw new Exception(join(errors, "\n"));
-	}
+//	foreach (error ; errors) {
+//		warnln(error);
+//	}
+//	if (errors.length > 0) {
+//		import std.array : join;
+//		throw new Exception(join(errors, "\n"));
+//	}
 }
 
 void InitSDL() {
@@ -137,7 +139,7 @@ void InitSDL() {
 	// Init all of SDL
 	int flags = SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER;
 	if (SDL_Init(flags) != 0) {
-		throw new Exception(format!("Failed to initialize SDL: %s")(GetSDLError()));
+		//throw new Exception(format!("Failed to initialize SDL: %s")(GetSDLError()));
 	}
 }
 

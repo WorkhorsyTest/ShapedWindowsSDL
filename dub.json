@@ -6,7 +6,15 @@
 		"Matthew Brennan Jones <matthew.brennan.jones@gmail.com>"
 	],
 	"copyright": "Copyright (c) 2023 Matthew Brennan Jones",
+	"targetType": "executable",
 
+	"buildOptions": [
+		"betterC"
+	],
+
+	"subConfigurations": {
+		"bindbc-sdl": "dynamicBC"
+	},
 
 	"versions": [
 		"SDL_205",

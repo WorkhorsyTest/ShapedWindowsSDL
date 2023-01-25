@@ -29,8 +29,8 @@ struct Vec2(T) {
 		} else static if (op == "*") {
 			return Vec2(x * rhs, y * rhs);
 		} else {
-			import std.string : format;
-			static assert(0, `Unexpected op "%s"`.format(op));
+			//import std.string : format;
+			//static assert(0, `Unexpected op "%s"`.format(op));
 		}
 	}
 
@@ -45,8 +45,8 @@ struct Vec2(T) {
 		} else static if (op == "*") {
 			return Vec2(lhs * x, lhs * y);
 		} else {
-			import std.string : format;
-			static assert(0, `Unexpected op "%s"`.format(op));
+			//import std.string : format;
+			//static assert(0, `Unexpected op "%s"`.format(op));
 		}
 	}
 
@@ -65,8 +65,8 @@ struct Vec2(T) {
 			x *= rhs;
 			y *= rhs;
 		} else {
-			import std.string : format;
-			static assert(0, `Unexpected op "%s"`.format(op));
+			//import std.string : format;
+			//static assert(0, `Unexpected op "%s"`.format(op));
 		}
 	}
 
@@ -84,8 +84,8 @@ struct Vec2(T) {
 			x *= rhs.x;
 			y *= rhs.y;
 		} else {
-			import std.string : format;
-			static assert(0, `Unexpected op "%s"`.format(op));
+			//import std.string : format;
+			//static assert(0, `Unexpected op "%s"`.format(op));
 		}
 	}
 }

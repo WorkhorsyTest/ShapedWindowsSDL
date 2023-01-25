@@ -31,11 +31,11 @@ struct WindowSprite {
 	SDL_Renderer* renderer;
 	Graphic graphic;
 
-	this(string image_path) {
-		import std.string : toStringz;
+	this(const char* image_path) {
+		//import std.string : toStringz;
 
 		window = SDL_CreateShapedWindow(
-			image_path.toStringz,
+			image_path,
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 			100, 100,
 			SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_SKIP_TASKBAR | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU
@@ -120,7 +120,26 @@ Vec2f GetRandomScreenSidePos(out int previous_side) {
 	return target;
 }
 
-int main() {
+static immutable char* sprite1_path = "./images/Dlang_big.png\0".ptr;
+static immutable char* sprite2_path = "./images/SDL_big.png\0".ptr;
+static Block[50] blocks;
+
+version (D_BetterC) {
+	extern(C) int main() {
+		return _main();
+	}
+} else {
+	int main() {
+		return _main();
+	}
+}
+
+extern(C) int _main() {
+	import core.stdc.stdio : printf;
+	version (D_BetterC) {
+		printf("Hello from betterC\n");
+	}
+
 	import std.math : sin, cos;
 	import std.algorithm.comparison : clamp;
 	import core.thread.osthread : Thread;
@@ -132,7 +151,7 @@ int main() {
 	Random.Init();
 
 	// Set GC and FPS
-	const bool is_active_gc = true;
+	//const bool is_active_gc = true;
 	const s64 target_fps = 60;
 	const s64 budget_time = 1_000_000_000 / target_fps;
 
@@ -143,15 +162,15 @@ int main() {
 	screen_h = display_mode.h;
 
 	// Setup windows
-	auto sprite1 = WindowSprite("./images/Dlang_big.png");
-	auto sprite2 = WindowSprite("./images/SDL_big.png");
+	auto sprite1 = WindowSprite(sprite1_path);
+	auto sprite2 = WindowSprite(sprite2_path);
 
 	// Clear and show windows
 	sprite1.Show();
 	sprite2.Show();
 
-	Array!Block blocks;
-	foreach (_ ; 0 .. 50) {
+	
+	foreach (i ; 0 .. blocks.length) {
 		auto angle = Random.Float(0.0, 360.0);
 		auto radius = Random.Float(0.0, 300.0);
 		auto width = Random.Float(20.0, 50.0);
@@ -162,12 +181,12 @@ int main() {
 			cast(u8) Random.Integer(0, 255),
 			cast(u8) 255
 		);
-		blocks ~= Block(angle, radius, width, pos, color);
+		blocks[i] = Block(angle, radius, width, pos, color);
 	}
 
 	bool is_running = true;
 
-	if (is_active_gc) {
+	version (D_BetterC) { } else {
 		core.memory.GC.collect();
 		core.memory.GC.disable();
 	}
@@ -176,11 +195,12 @@ int main() {
 	start_time = GetTicksNS();
 	Vec2f previous_dest = Vec2f(0, 0);
 	int previous_side;
+
 	while (is_running) {
 		s64 used_ns = clamp(GetTicksNS() - start_time, 0, s64.max);
 		double delta = used_ns / 1_000_000_000.0;
 		start_time = GetTicksNS();
-		//logfln("start_time:%s, used_ns:%s, delta:%s", start_time, used_ns, delta);
+		//printf("start_time:%ld, used_ns:%ld, delta:%f\n", start_time, used_ns, delta);
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
@@ -208,8 +228,6 @@ int main() {
 		if (MoveTowards(sprite2.pos, previous_dest, delta * 300.0)) {
 			previous_dest = GetRandomScreenSidePos(previous_side);
 		}
-		//SDL_SetWindowPosition(sprite1.window, cast(s32) sprite1.pos.x, cast(s32) sprite1.pos.y);
-		//SDL_SetWindowPosition(sprite2.window, cast(s32) sprite2.pos.x, cast(s32) sprite2.pos.y);
 		SDL_SetWindowPosition(sprite1.window, cast(s32) sprite1.left, cast(s32) sprite1.bottom);
 		SDL_SetWindowPosition(sprite2.window, cast(s32) sprite2.left, cast(s32) sprite2.bottom);
 
@@ -236,7 +254,7 @@ int main() {
 		sprite2.Present();
 
 		// Run GC if in active mode
-		if (is_active_gc) {
+		version (D_BetterC) { } else {
 			core.memory.GC.enable();
 			core.memory.GC.collect();
 			core.memory.GC.disable();
@@ -246,16 +264,22 @@ int main() {
 		end_time = GetTicksNS();
 		used_time = clamp(end_time - start_time, 0, s64.max);
 		sleep_time = clamp(budget_time - used_time, 0, s64.max);
-		//if (used_time > 2_000_000) logfln("!!! used_time:%s, sleep_time:%s, delta:%s", used_time, sleep_time, delta);
-		Thread.sleep(dur!("nsecs")(sleep_time));
+		/*if (used_time > 2_000_000)*/ printf("!!! used_time:%ld, sleep_time:%ld, delta:%f\n", used_time, sleep_time, delta);
+		version (D_BetterC) {
+			import core.sys.posix.unistd;
+			usleep(cast(useconds_t) (sleep_time / 1_000)); // convert nanoseconds to microseconds
+		} else {
+			Thread.sleep(dur!("nsecs")(sleep_time));
+		}
 	}
 
-	if (is_active_gc) {
+	version (D_BetterC) { } else {
 		core.memory.GC.enable();
 	}
 
 	sprite1.Free();
 	sprite2.Free();
 	SDL_Quit();
+
 	return 0;
 }
