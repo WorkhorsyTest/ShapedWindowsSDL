@@ -39,20 +39,20 @@ SDL_WindowShapeMode GetWindowShapeModeFromColorAlpha(SDL_Surface* surface) {
 }
 
 struct Graphic {
-	char* image_path;
+	string _image_path;
 	SDL_Surface* surface;
 	SDL_Texture* texture;
 	SDL_WindowShapeMode shape_mode;
 }
 
-Graphic LoadGraphic(SDL_Renderer* renderer, const char* image_path) {
+Graphic LoadGraphic(SDL_Renderer* renderer, string image_path) {
 	//import std.string : toStringz;
 
 	Graphic graphic;
-	graphic.image_path = cast(char*) image_path;
+	graphic._image_path = image_path;
 
 	// Create new surface from the image
-	graphic.surface = IMG_Load(image_path);
+	graphic.surface = IMG_Load(cast(char*) graphic._image_path.ptr);
 	if (graphic.surface == null) {
 		//throw new Exception(format!("Failed to load surface: %s")(GetSDLError()));
 	}

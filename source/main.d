@@ -30,12 +30,14 @@ struct WindowSprite {
 	SDL_Window* window;
 	SDL_Renderer* renderer;
 	Graphic graphic;
+	string _image_path;
 
-	this(const char* image_path) {
+	this(string image_path) {
 		//import std.string : toStringz;
 
+		_image_path = image_path;
 		window = SDL_CreateShapedWindow(
-			image_path,
+			cast(char*) _image_path.ptr,
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 			100, 100,
 			SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_SKIP_TASKBAR | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU
@@ -43,7 +45,7 @@ struct WindowSprite {
 
 		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-		graphic = LoadGraphic(renderer, image_path);
+		graphic = LoadGraphic(renderer, _image_path);
 
 		SetWindowSizeAndShape(window, graphic);
 	}
@@ -120,8 +122,7 @@ Vec2f GetRandomScreenSidePos(out int previous_side) {
 	return target;
 }
 
-static immutable char* sprite1_path = "./images/Dlang_big.png\0".ptr;
-static immutable char* sprite2_path = "./images/SDL_big.png\0".ptr;
+
 static Block[50] blocks;
 
 version (D_BetterC) {
@@ -162,8 +163,9 @@ extern(C) int _main() {
 	screen_h = display_mode.h;
 
 	// Setup windows
-	auto sprite1 = WindowSprite(sprite1_path);
-	auto sprite2 = WindowSprite(sprite2_path);
+	// NOTE: Null terminated strings :(
+	auto sprite1 = WindowSprite("./images/Dlang_big.png\0");
+	auto sprite2 = WindowSprite("./images/SDL_big.png\0");
 
 	// Clear and show windows
 	sprite1.Show();
