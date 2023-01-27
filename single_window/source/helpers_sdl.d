@@ -228,7 +228,13 @@ SDL_WindowShapeMode GetWindowShapeModeFromColorAlpha(SDL_Surface* surface) {
 	return shape_mode;
 }
 
-/*
+bool IsSurfacePixelFormatExpected(const SDL_Surface* surface) {
+	return (surface.format.Rmask == MASK_R &&
+			surface.format.Gmask == MASK_G &&
+			surface.format.Bmask == MASK_B &&
+			surface.format.Amask == MASK_A);
+}
+
 SDL_Surface* EnsureSurfacePixelFormat(SDL_Surface* surface) {
 	// Just return if the pixel format is already the expected
 	if (IsSurfacePixelFormatExpected(surface)) {
@@ -248,13 +254,13 @@ SDL_Surface* EnsureSurfacePixelFormat(SDL_Surface* surface) {
 	}
 	return new_surface;
 }
-*/
+
 SDL_Surface* CreateSurface(const int W, const int H, const SDL_Color color) {
 	SDL_Surface* surface = SDL_CreateRGBSurface(0, W, H, 32, MASK_R, MASK_G, MASK_B, MASK_A);
 	if (surface == null) {
 		throw new Exception(format!("Failed to create surface: %s")(GetSDLError()));
 	}
-	//surface = EnsureSurfacePixelFormat(surface);
+	surface = EnsureSurfacePixelFormat(surface);
 
 	// Fill the surface with the color
 	SDL_Rect rect = { 0, 0, surface.w, surface.h };
@@ -266,22 +272,24 @@ SDL_Surface* CreateSurface(const int W, const int H, const SDL_Color color) {
 	return surface;
 }
 
-SDL_Surface* GenerateMask(SDL_Surface* src_surface, SDL_Color visible_color) {
+SDL_Surface* GenerateMask(SDL_Surface* src_surface, SDL_Color visible_color, bool is_xor = false) {
 	auto clear = SDL_Color(0, 0, 0, 0);
 	SDL_Surface* dest_surface = CreateSurface(src_surface.w, src_surface.h, clear);
 	u32* src_pixels = cast(u32*) src_surface.pixels;
 	u32* dest_pixels = cast(u32*) dest_surface.pixels;
 	u32 visible_color_u32 = toU32(visible_color, dest_surface.format);
 	u32 clear_color_u32 = toU32(clear, dest_surface.format);
-	for (int y=0; y<src_surface.h; ++y) {
-		for (int x=0; x<src_surface.w; ++x) {
-			size_t i = (y * src_surface.w) + x;
-			u8 a, r, g, b;
-			SDL_GetRGBA(src_pixels[i], src_surface.format, &r, &g, &b, &a);
-			u32 color = a > 0 ? visible_color_u32 : clear_color_u32;
-			dest_pixels[i] = color;
-		}
+//	foreach (y ; 0 .. src_surface.h) {
+//		foreach (x ; 0 .. src_surface.w) {
+	foreach (i ; 0 .. src_surface.w * src_surface.h) {
+		u8 a, r, g, b;
+		SDL_GetRGBA(src_pixels[i], src_surface.format, &r, &g, &b, &a);
+		bool is_visible = is_xor ? a <= 0 : a > 0;
+		u32 color = is_visible ? visible_color_u32 : clear_color_u32;
+		dest_pixels[i] = color;
 	}
+//		}
+//	}
 
 	return dest_surface;
 }
@@ -292,6 +300,12 @@ struct Graphic {
 	SDL_Surface* mask;
 	SDL_Texture* texture;
 	SDL_WindowShapeMode shape_mode;
+
+	void Free() {
+		SDL_DestroyTexture(texture); texture = null;
+		SDL_FreeSurface(surface); surface = null;
+		SDL_FreeSurface(mask); mask = null;
+	}
 }
 
 Graphic LoadGraphic(SDL_Renderer* renderer, string image_path) {
@@ -306,7 +320,7 @@ Graphic LoadGraphic(SDL_Renderer* renderer, string image_path) {
 		throw new Exception(format!("Failed to load surface: %s")(GetSDLError()));
 	}
 
-	graphic.mask = GenerateMask(graphic.surface, SDL_Color(255, 255, 255, 255));
+	graphic.mask = GenerateMask(graphic.surface, SDL_Color(255, 255, 255, 255), false);
 
 	// Create a new texture from the surface
 	graphic.texture = SDL_CreateTextureFromSurface(renderer, graphic.surface);

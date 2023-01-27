@@ -10,74 +10,276 @@ import helpers_sdl;
 import Random;
 
 
-struct Block {
+struct MainWindow {
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+
+	void Setup() {
+		window = SDL_CreateWindow(
+			"main window",
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			300, 300,
+			SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_RESIZABLE
+		);
+
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+		// Move window to center and show
+		SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+	}
+
+	void Free() {
+		SDL_DestroyRenderer(renderer); renderer = null;
+		SDL_DestroyWindow(window); window = null;
+	}
+
+	void Show() {
+		SDL_ShowWindow(window);
+		SDL_SetWindowInputFocus(window);
+	}
+
+	void Draw() {
+		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+		SDL_RenderClear(renderer);
+	}
+
+	void Present() {
+		SDL_RenderPresent(renderer);
+	}
+}
+
+struct FullScreenSprite {
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+	SDL_Surface* mask;
+	SDL_WindowShapeMode shape_mode;
+
+	void Setup() {
+		//import std.string : toStringz;
+		SDL_DisplayMode display_mode;
+		SDL_GetCurrentDisplayMode(0, &display_mode);
+		logfln("w:%s, h:%s", display_mode.w, display_mode.h);
+
+		// Setup window and renderer
+		window = SDL_CreateShapedWindow(
+			"Full screen window",
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			display_mode.w, display_mode.h,
+			SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_SKIP_TASKBAR | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU
+		);
+
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+		mask = CreateSurface(display_mode.w, display_mode.h, SDL_Color(0, 0, 0, 0));
+
+		// Move window to center and show
+		SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		//SDL_SetWindowOpacity(window, 0.7);
+	}
+
+	void Free() {
+		SDL_FreeSurface(mask); mask = null;
+		SDL_DestroyRenderer(renderer); renderer = null;
+		SDL_DestroyWindow(window); window = null;
+	}
+
+	void Show() {
+		SDL_ShowWindow(window);
+	}
+
+	void DrawBackground() {
+		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+		SDL_RenderClear(renderer);
+	}
+
+	void Present() {
+		SDL_RenderPresent(renderer);
+	}
+
+	void ClearMask() {
+		SDL_LockSurface(mask);
+		u32* pixels = cast(u32*) mask.pixels;
+		foreach (y ; 0 .. mask.h) {
+			foreach (x ; 0 .. mask.w) {
+				size_t i = (y * mask.w) + x;
+				pixels[i] = 0x00000000;
+			}
+		}
+		SDL_UnlockSurface(mask);
+	}
+
+	void ApplyMask() {
+		shape_mode.mode = ShapeModeDefault;
+		shape_mode.mode = ShapeModeColorKey;
+		shape_mode.parameters.colorKey = SDL_Color(0, 0, 0, 0);
+		if (SDL_SetWindowShape(window, mask, &shape_mode) != 0) {
+			throw new Exception(format!("Failed to set window shape: %s")(GetSDLError()));
+		}
+	}
+}
+
+struct ScreenSprite {
+	auto pos = Vec2f(0, 0);
+	string _image_path;
+	Graphic graphic;
+	FullScreenSprite* _parent;
+
+	this(FullScreenSprite* parent, string image_path) {
+		_parent = parent;
+		_image_path = image_path;
+		graphic = LoadGraphic(_parent.renderer, _image_path);
+	}
+
+	void Free() {
+		_parent = null;
+		graphic.Free(); graphic = Graphic.init;
+	}
+
+	void Logic(const double delta) {
+		//logfln("pos: %s", pos);
+		pos.x += 20.0 * delta;
+		pos.y += 20.0 * delta;
+	}
+
+	void DrawMask() {
+		SDL_Rect srcrect = { 0, 0, graphic.mask.w, graphic.mask.h };
+		SDL_Rect dstrect = { cast(s32) pos.x, cast(s32) pos.y, graphic.mask.w, graphic.mask.h };
+		SDL_BlitSurface(graphic.mask, &srcrect, _parent.mask, &dstrect);
+	}
+
+	void Draw() {
+		SDL_Rect dstrect = { cast(s32) pos.x, cast(s32) pos.y, graphic.surface.w, graphic.surface.h };
+		SDL_RenderCopy(_parent.renderer, graphic.texture, null, &dstrect);
+	}
+}
+
+struct WindowSprite {
+	Vec2f pos = Vec2f(0, 0);
 	float angle = 0;
-	float radius = 0;
-	float width = 100;
-	Vec2f pos;
-	SDL_Color color;
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+	Graphic graphic;
+	string _image_path;
+	Vec2f previous_dest = Vec2f(0, 0);
+	int previous_side;
+
+	this(string image_path) {
+		//import std.string : toStringz;
+
+		_image_path = image_path;
+		window = SDL_CreateShapedWindow(
+			cast(char*) _image_path.ptr,
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+			100, 100,
+			SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_SKIP_TASKBAR | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU
+		);
+
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+		graphic = LoadGraphic(renderer, _image_path);
+
+		SetWindowSizeAndShape(window, graphic);
+	}
+
+	void Free() {
+		graphic.Free(); graphic = Graphic.init;
+		SDL_DestroyRenderer(renderer); renderer = null;
+		SDL_DestroyWindow(window); window = null;
+	}
+
+	float left() {
+		return this.pos.x - (this.graphic.surface.w / 2.0);
+	}
+
+	float bottom() {
+		return this.pos.y - (this.graphic.surface.h / 2.0);
+	}
+
+	void Logic(const double delta) {
+		// Move SDL from screen side to side
+		if (MoveTowards(pos, previous_dest, delta * 300.0)) {
+			previous_dest = GetRandomScreenSidePos(previous_side);
+		}
+		SDL_SetWindowPosition(window, cast(s32) left, cast(s32) bottom);
+	}
+
+	void Show() {
+		SDL_ShowWindow(window);
+	}
+
+	void Draw() {
+		// Clear
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+		SDL_RenderClear(renderer);
+
+		// Draw
+		SDL_RenderCopy(renderer, graphic.texture, null, null);
+	}
+
+	void Present() {
+		SDL_RenderPresent(renderer);
+	}
+}
+
+Vec2f GetRandomScreenSidePos(out int previous_side) {
+	previous_side = Random.UniqueInteger(0, 4, previous_side);
+
+	SDL_DisplayMode display_mode;
+	SDL_GetCurrentDisplayMode(0, &display_mode);
+
+	auto target = Vec2f(0, 0);
+	final switch (previous_side) {
+		// Top side
+		case 0:
+			target.x = Random.Float(0, display_mode.w);
+			target.y = 0;
+			break;
+		// Bottom side
+		case 1:
+			target.x = Random.Float(0, display_mode.w);
+			target.y = display_mode.h;
+			break;
+		// Right side
+		case 2:
+			target.x = display_mode.w;
+			target.y = Random.Float(0, display_mode.h);
+			break;
+		// Left side
+		case 3:
+			target.x = 0;
+			target.y = Random.Float(0, display_mode.h);
+			break;
+	}
+
+	return target;
 }
 
 int main() {
-	//import Colors;
-	import std.math : sin, cos;
 	import std.algorithm.comparison : clamp;
 	import core.thread.osthread : Thread;
 	import core.time : dur;
-	//static import GC;
 	static import core.memory;
 
 	InitSharedLibraries();
 	InitSDL();
 	Random.Init();
 
-	SDL_DisplayMode display_mode;
-	SDL_GetCurrentDisplayMode(0, &display_mode);
-	int screen_w = display_mode.w;
-	int screen_h = display_mode.h;
-	logfln("w:%s, h:%s", screen_w, screen_h);
-
-	// Setup window and renderer
-	SDL_Window* window = SDL_CreateShapedWindow(
-		"Malware Mayhem",
-		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		screen_w, screen_h,
-		SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_SKIP_TASKBAR | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU
-	);
-
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
+	auto full_screen_sprite = FullScreenSprite();
+	full_screen_sprite.Setup();
 	// Make window shaped like image
-	auto graphic_dlang = LoadGraphic(renderer, "./images/Dlang_big.png");
-	auto graphic_sdl = LoadGraphic(renderer, "./images/SDL_big.png");
+	auto dlang = ScreenSprite(&full_screen_sprite, "./images/Dlang_big.png\0");
+	auto sdl = WindowSprite("./images/SDL_big.png\0");
+	auto main_window = MainWindow();
+	main_window.Setup();
 
-	SDL_Surface* back1 = CreateSurface(screen_w, screen_h, SDL_Color(0, 0, 0, 0));
-	SDL_Surface* back2 = CreateSurface(screen_w, screen_h, SDL_Color(0, 0, 0, 0));
+	// Clear and show windows
+	full_screen_sprite.Show();
+	sdl.Show();
+	main_window.Show();
 
-	// Move window to center and show
-	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-	SDL_ShowWindow(window);
-
-	// Clear window
-	SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-	SDL_RenderClear(renderer);
-	SDL_RenderPresent(renderer);
-	//SDL_SetWindowOpacity(window, 0.7);
-
-	Array!Block blocks;
-	foreach (_ ; 0 .. 6) {
-		auto angle = Random.Float(0.0, 360.0);
-		auto radius = Random.Float(0.0, 300.0);
-		auto width = Random.Float(50.0, 100.0);
-		auto pos = Vec2f(screen_w * Random.Float(0.0, 1.0), screen_h * Random.Float(0.0, 1.0));
-		auto color = SDL_Color(
-			cast(u8) Random.Integer(0, 255),
-			cast(u8) Random.Integer(0, 255),
-			cast(u8) Random.Integer(0, 255),
-			cast(u8) 255
-		);
-		blocks ~= Block(angle, radius, width, pos, color);
-	}
+	sdl.Draw();
+	full_screen_sprite.DrawBackground();
+	main_window.Draw();
 
 	bool is_running = true;
 
@@ -86,116 +288,56 @@ int main() {
 
 	s64 start_time, end_time, used_time, sleep_time;
 	s64 budget_time = 1_000_000_000 / 60;
-	//s64 loops = 0;
-	auto pos = Vec2f(0, 0);
 	start_time = GetTicksNS();
-	bool is_fuck;
 	while (is_running) {
-		is_fuck = ! is_fuck;
 		s64 used_ns = clamp(GetTicksNS() - start_time, 0, s64.max);
 		double delta = used_ns / 1_000_000_000.0;
 		start_time = GetTicksNS();
 
 		SDL_Event event;
-		//logfln("loops:%s, used_ns:%s", loops, used_ns);
-		//loops++;
-		//s64 count = 0;
 		while (SDL_PollEvent(&event)) {
-			//logfln("    count: %s", count);
-			//count++;
-			if (event.type == SDL_QUIT) {
-				is_running = false;
+			switch (event.type) {
+				// Quit the game if the main window is closed
+				case SDL_WINDOWEVENT:
+					if (event.window.event == SDL_WINDOWEVENT_CLOSE &&
+						event.window.windowID == SDL_GetWindowID(main_window.window)) {
+						is_running = false;
+					}
+					break;
+				// Quit the game normally
+				case SDL_QUIT:
+					is_running = false;
+					break;
+				// Quit the game if ESC is pressed
+				case SDL_KEYUP:
+					if (event.key.keysym.sym == SDLK_ESCAPE) {
+						is_running = false;
+					}
+					break;
+				default:
+					break;
 			}
 		}
 
-		// Rotate block around center
-		foreach (ref block ; blocks) {
-			block.angle += 2.0 * delta;
-			block.pos.x = cos(block.angle) * block.radius + screen_w * 0.5f;
-			block.pos.y = sin(block.angle) * block.radius + screen_h * 0.5f;
-		}
+		// Run logic
+		dlang.Logic(delta);
+		sdl.Logic(delta);
 
-		logfln("pos: %s", pos);
-		pos.x += 20.0 * delta;
-		pos.y += 20.0 * delta;
+		// Clear window mask
+		full_screen_sprite.ClearMask();
+		dlang.DrawMask();
+		full_screen_sprite.ApplyMask();
 
-		// Generate window mask
-		if (is_fuck) {
-			// Clear window mask
-			SDL_LockSurface(back1);
-			u32* pixels = cast(u32*) back1.pixels;
-			foreach (y ; 0 .. back1.h) {
-				foreach (x ; 0 .. back1.w) {
-					size_t i = (y * back1.w) + x;
-					pixels[i] = 0x00000000;
-				}
-			}
-			SDL_UnlockSurface(back1);
+		// Draw on window
+		full_screen_sprite.DrawBackground();
+		dlang.Draw();
+		sdl.Draw();
+		main_window.Draw();
 
-			// Copy scprite mask to window mask
-			SDL_Rect srcrect = { 0, 0, graphic_sdl.mask.w, graphic_sdl.mask.h };
-			SDL_Rect dstrect = { cast(s32) pos.x, cast(s32) pos.y, graphic_sdl.mask.w, graphic_sdl.mask.h };
-			SDL_BlitSurface(graphic_sdl.mask, &srcrect, back1, &dstrect);
-		} else {
-			// Clear window mask
-			SDL_LockSurface(back2);
-			u32* pixels = cast(u32*) back2.pixels;
-			foreach (y ; 0 .. back2.h) {
-				foreach (x ; 0 .. back2.w) {
-					size_t i = (y * back2.w) + x;
-					pixels[i] = 0x00000000;
-				}
-			}
-			SDL_UnlockSurface(back2);
-
-			// Copy scprite mask to window mask
-			SDL_Rect srcrect = { 0, 0, graphic_dlang.mask.w, graphic_dlang.mask.h };
-			SDL_Rect dstrect = { cast(s32) pos.x, cast(s32) pos.y, graphic_dlang.mask.w, graphic_dlang.mask.h };
-			SDL_BlitSurface(graphic_dlang.mask, &srcrect, back2, &dstrect);
-		}
-
-		// Set window to use window mask
-		SDL_WindowShapeMode shape_mode;
-		shape_mode.mode = ShapeModeDefault;
-		shape_mode.mode = ShapeModeColorKey;
-		shape_mode.parameters.colorKey = SDL_Color(0, 0, 0, 0);
-		if (is_fuck) {
-			if (SDL_SetWindowShape(window, back1, &shape_mode) != 0) {
-				throw new Exception(format!("Failed to set window shape: %s")(GetSDLError()));
-			}
-		} else {
-			if (SDL_SetWindowShape(window, back2, &shape_mode) != 0) {
-				throw new Exception(format!("Failed to set window shape: %s")(GetSDLError()));
-			}
-		}
-		//SDL_UpdateWindowSurface(window);
-
-		// Clear window
-		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
-		SDL_RenderClear(renderer);
-
-		// Draw background
-		if (is_fuck) {
-			SDL_Rect dstrect = { cast(s32) pos.x, cast(s32) pos.y, graphic_sdl.surface.w, graphic_sdl.surface.h };
-			SDL_RenderCopy(renderer, graphic_sdl.texture, null, &dstrect);
-		} else {
-			SDL_Rect dstrect = { cast(s32) pos.x, cast(s32) pos.y, graphic_dlang.surface.w, graphic_dlang.surface.h };
-			SDL_RenderCopy(renderer, graphic_dlang.texture, null, &dstrect);
-		}
-
-		// Draw blocks
-		foreach (ref block ; blocks) {
-			SDL_Rect rect = {
-				cast(s32) (block.pos.x - (block.width / 2)),
-				cast(s32) (block.pos.y - (block.width / 2)),
-				cast(s32) block.width,
-				cast(s32) block.width
-			};
-			SDL_SetRenderDrawColor(renderer, block.color.r, block.color.g, block.color.b, block.color.a);
-			SDL_RenderFillRect(renderer, &rect);
-		}
-
-		SDL_RenderPresent(renderer);
+		// Present window
+		full_screen_sprite.Present();
+		sdl.Present();
+		main_window.Present();
 
 		core.memory.GC.enable();
 		core.memory.GC.collect();
@@ -210,12 +352,11 @@ int main() {
 
 	core.memory.GC.enable();
 
-	foreach (graphic ; [graphic_dlang, graphic_sdl]) {
-		SDL_DestroyTexture(graphic.texture);
-		SDL_FreeSurface(graphic.surface);
-	}
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
+	sdl.Free();
+	dlang.Free();
+	full_screen_sprite.Free();
+	main_window.Free();
+
 	SDL_Quit();
 	return 0;
 }
